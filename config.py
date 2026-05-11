@@ -6,7 +6,7 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) Gecko/20100101
 
 # Настройки прокси
 PROXY_ENABLED = False
-PROXY_URL = "socks5://PrsRUSMPC5KDT:WSBVfBhW@62.233.39.111:1080"
+PROXY_URL = "socks5://PrsRUSBY1WEI3:z1rsdzc0@62.233.39.173:1080"
 
 # Настройки пагинации
 OWNERS_PER_PAGE = 36
@@ -25,16 +25,14 @@ WANTS_LAST_PAGE_ESTIMATE = 30
 REQUEST_TIMEOUT = (10, 20)
 
 # Rate Limiting
-RATE_LIMIT_PER_MINUTE = 70
+RATE_LIMIT_PER_MINUTE = 66
 RATE_LIMIT_RETRY_DELAY = 15
 RATE_LIMIT_WINDOW = 60
 
 # Действия, которые считаются в rate limit
 RATE_LIMITED_ACTIONS = {
-    'send_trade',
     'load_owners_page',
-    'load_wants_page',
-    'load_user_cards',
+    'load_wants_page'
 }
 
 # Задержки между запросами
@@ -44,7 +42,7 @@ PARSE_DELAY = 0.9
 CARD_API_DELAY = 0.2
 
 # Настройки обменов
-MIN_TRADE_DELAY = 11.0
+MIN_TRADE_DELAY = 9.0
 TRADE_RANDOM_DELAY_MIN = 0.5
 TRADE_RANDOM_DELAY_MAX = 2.0
 
@@ -56,7 +54,7 @@ MONITOR_STATUS_INTERVAL = 30
 HISTORY_CHECK_INTERVAL = 10  # 10 секунд
 
 # Настройки ожидания после обработки всех владельцев
-WAIT_AFTER_ALL_OWNERS = 300
+WAIT_AFTER_ALL_OWNERS = 120
 WAIT_CHECK_INTERVAL = 2
 
 # Настройки кэша
@@ -64,13 +62,13 @@ CACHE_VALIDITY_HOURS = 72
 
 # Настройки селектора карт
 MAX_CARD_SELECTION_ATTEMPTS = 50
-MAX_WANTERS_FOR_TRADE = 70  # Максимум желающих для выбора карты
+MAX_WANTERS_FOR_TRADE = 100  # Максимум желающих для выбора карты
 
 # 🔧 НОВОЕ: Максимум владельцев для карт клуба
 MAX_CLUB_CARD_OWNERS = 540  # Максимальное количество владельцев для буст-карты
 
 # Пропуск первых владельцев на первой странице
-FIRST_PAGE_SKIP_OWNERS = 6
+FIRST_PAGE_SKIP_OWNERS = 3
 
 # Дневные лимиты
 MAX_DAILY_DONATIONS = 50
@@ -80,8 +78,8 @@ MAX_DAILY_REPLACEMENTS = 10
 TIMEZONE_OFFSET = 3  # Московское время UTC+3
 
 # Настройки повторных попыток
-MAX_RETRIES = 3
-RETRY_DELAY = 2
+MAX_RETRIES = 1
+RETRY_DELAY = 1
 
 # Директории
 OUTPUT_DIR = "created_files"

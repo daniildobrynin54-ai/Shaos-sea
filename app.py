@@ -36,7 +36,7 @@ class MangaBuffApp(SessionMixin, ProcessingMixin):
     """Главное приложение MangaBuff v2.8.1."""
 
     MAX_FAILED_CYCLES = 3
-    ALLOWED_RANKS = {"E", "D", "C"}  # Только эти ранги берём в работу
+    ALLOWED_RANKS = {"E", "D", "C", "B"}  # E, D, C и B — все рабочие ранги
 
     def __init__(self, args):
         self.args = args
@@ -140,7 +140,7 @@ class MangaBuffApp(SessionMixin, ProcessingMixin):
             self.logger.info("Пропуск загрузки инвентаря (--skip_inventory)")
             return []
 
-        print(f"   🔍 Фильтрация: только ранги E, D, C | без заблокированных карт")
+        print(f"   🔍 Фильтрация: только ранги E, D, C, B | без заблокированных карт")
         raw_inventory = get_user_inventory(self.session, self.args.user_id)
         self.logger.info(f"Загружено карточек с сервера (без фильтра): {len(raw_inventory)}")
 

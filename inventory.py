@@ -15,80 +15,35 @@ from config import (
 from utils import load_json, save_json
 
 # Разрешённые ранги — единое место определения для всего проекта
-ALLOWED_RANKS = {"E", "D", "C"}
+# Порядок рангов: B > C > D > E (от высшего к низшему)
+ALLOWED_RANKS = {"E", "D", "C", "B"}
 
 
 class InventoryManager:
     """Менеджер для работы с инвентарем."""
 
     def __init__(self, output_dir: str = OUTPUT_DIR):
-        """
-        Инициализация менеджера инвентаря.
-
-        Args:
-            output_dir: Директория для хранения файлов
-        """
         self.output_dir = output_dir
         self.inventory_path = os.path.join(output_dir, INVENTORY_FILE)
         self.parsed_inventory_path = os.path.join(output_dir, PARSED_INVENTORY_FILE)
 
     def load_inventory(self) -> List[Dict[str, Any]]:
-        """
-        Загружает инвентарь из файла.
-
-        Returns:
-            Список карт инвентаря
-        """
         return load_json(self.inventory_path, default=[])
 
     def save_inventory(self, inventory: List[Dict[str, Any]]) -> bool:
-        """
-        Сохраняет инвентарь в файл.
-
-        Args:
-            inventory: Список карт для сохранения
-
-        Returns:
-            True если успешно
-        """
         return save_json(self.inventory_path, inventory)
 
     def load_parsed_inventory(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Загружает пропарсенный инвентарь из файла.
-
-        Returns:
-            Словарь с пропарсенными картами {card_id: card_data}
-        """
         return load_json(self.parsed_inventory_path, default={})
 
     def save_parsed_inventory(
         self,
         parsed_inventory: Dict[str, Dict[str, Any]]
     ) -> bool:
-        """
-        Сохраняет пропарсенный инвентарь в файл.
-
-        Args:
-            parsed_inventory: Словарь с пропарсенными картами
-
-        Returns:
-            True если успешно
-        """
         return save_json(self.parsed_inventory_path, parsed_inventory)
 
     def remove_card(self, card: Dict[str, Any]) -> bool:
-        """
-        Удаляет карту из инвентаря.
-
-        Args:
-            card: Карта для удаления
-
-        Returns:
-            True если успешно
-        """
         inventory = self.load_inventory()
-
         try:
             inventory.remove(card)
             return self.save_inventory(inventory)
@@ -99,13 +54,9 @@ class InventoryManager:
         """
         Синхронизирует обычный и пропарсенный инвентарь при запуске.
 
-        Выполняет следующие операции:
         1. Удаляет из inventory.json карты которые уже есть в parsed_inventory.json
         2. Удаляет из parsed_inventory.json карты которых нет в новом inventory.json
-        3. Удаляет из parsed_inventory.json карты с недопустимыми рангами (не E/D/C)
-
-        Returns:
-            True если успешно
+        3. Удаляет из parsed_inventory.json карты с недопустимыми рангами (не B/C/D/E)
         """
         inventory = self.load_inventory()
         parsed_inventory = self.load_parsed_inventory()
@@ -118,14 +69,12 @@ class InventoryManager:
             print("   Пропарсенный инвентарь пуст")
             return True
 
-        # Создаем набор instance_id из обычного инвентаря для быстрого поиска
         inventory_instance_ids = set()
         for card in inventory:
             instance_id = card.get('id')
             if instance_id:
                 inventory_instance_ids.add(str(instance_id))
 
-        # Создаем набор instance_id из пропарсенного инвентаря
         parsed_instance_ids = set()
         for card_id_str, card_data in list(parsed_inventory.items()):
             instance_id = card_data.get('instance_id')
@@ -149,9 +98,7 @@ class InventoryManager:
         }
         removed_from_parsed = initial_parsed_count - len(parsed_inventory)
 
-        # ── 3. Удаляем из parsed_inventory карты с недопустимыми рангами ────
-        #    Это чистит накопленный "мусор" высоких рангов (A, B, S и т.д.),
-        #    который мог попасть туда до введения фильтрации в load_inventory.
+        # 3. Удаляем из parsed_inventory карты с недопустимыми рангами (не B/C/D/E)
         before_rank_filter = len(parsed_inventory)
         parsed_inventory = {
             card_id_str: card_data
@@ -161,9 +108,7 @@ class InventoryManager:
         removed_wrong_rank = before_rank_filter - len(parsed_inventory)
         if removed_wrong_rank > 0:
             print(f"   🗑️  Удалено из parsed (недопустимый ранг): {removed_wrong_rank}")
-        # ─────────────────────────────────────────────────────────────────────
 
-        # Сохраняем обновленные файлы
         save_success = True
 
         if removed_from_inventory > 0:
@@ -186,17 +131,6 @@ def fetch_user_cards(
     user_id: str,
     offset: int = 0
 ) -> List[Dict[str, Any]]:
-    """
-    Загружает карточки пользователя с заданным смещением.
-
-    Args:
-        session: Сессия requests
-        user_id: ID пользователя
-        offset: Смещение для пагинации
-
-    Returns:
-        Список карт или пустой список при ошибке
-    """
     url = f"{BASE_URL}/trades/{user_id}/availableCardsLoad"
 
     headers = {
@@ -229,17 +163,6 @@ def get_user_inventory(
     user_id: str,
     page_size: int = 60
 ) -> List[Dict[str, Any]]:
-    """
-    Получает все карточки пользователя.
-
-    Args:
-        session: Сессия requests
-        user_id: ID пользователя
-        page_size: Размер страницы (по умолчанию API возвращает 60)
-
-    Returns:
-        Список всех карт пользователя
-    """
     all_cards = []
     offset = 0
 
@@ -252,7 +175,6 @@ def get_user_inventory(
         all_cards.extend(cards)
         offset += len(cards)
 
-        # Если получили меньше, чем размер страницы - это последняя страница
         if len(cards) < page_size:
             break
 

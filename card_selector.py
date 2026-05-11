@@ -1,4 +1,11 @@
-"""Селектор карт для обмена с ПРИОРИТЕТОМ непропарсенных карт и немедленным возвратом."""
+"""Селектор карт для обмена с ПРИОРИТЕТОМ непропарсенных карт и немедленным возвратом.
+
+Логика выбора ранга:
+  Буст-карта ранга E → отдаём карту ранга D
+  Буст-карта ранга D → отдаём карту ранга C
+  Буст-карта ранга C → отдаём карту ранга B
+  Буст-карта ранга B → отдаём карту ранга B (ранг выше недоступен)
+"""
 
 import random
 import time
@@ -18,6 +25,28 @@ from logger import get_logger
 
 MAX_WANTERS_ALLOWED = MAX_WANTERS_FOR_TRADE
 LOW_WANTERS_THRESHOLD = 5
+
+# Порядок рангов: B > C > D > E
+# Для каждого ранга буст-карты — ранг карты, которую мы отдаём (на ступень выше)
+RANK_UP: Dict[str, str] = {
+    "E": "D",
+    "D": "C",
+    "C": "B",
+    "B": "B",  # выше B в допустимом диапазоне нет, остаём B
+}
+
+
+def get_trade_rank(boost_rank: str) -> str:
+    """
+    Возвращает ранг карты для обмена (на одну ступень выше ранга буст-карты).
+
+    Args:
+        boost_rank: Ранг буст-карты (E/D/C/B)
+
+    Returns:
+        Ранг карты для отдачи в обмен
+    """
+    return RANK_UP.get(boost_rank.upper(), boost_rank.upper())
 
 
 def normalize_wanters(wanters_count: int) -> int:
@@ -78,7 +107,6 @@ class CardSelector:
 
         card_id_str = str(card_data["card_id"])
 
-        # Проверяем кэш
         if card_id_str in parsed_inventory:
             cached = parsed_inventory[card_id_str]
             if is_cache_valid(cached.get("cached_at", ""), CACHE_VALIDITY_HOURS):
@@ -302,7 +330,7 @@ class CardSelector:
         exclude_instances: Optional[Set[int]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
-        Выбирает лучшую карту:
+        Выбирает лучшую карту нужного ранга:
         1. Сначала непропарсенные (немедленный возврат при нахождении).
         2. Затем пропарсенные (запасной вариант).
         """
@@ -385,12 +413,23 @@ def select_trade_card(
     trade_manager=None,
     exclude_instances: Optional[Set[int]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Главная функция для выбора карты с исключением."""
-    target_rank = boost_card.get("rank", "")
+    """
+    Главная функция для выбора карты с исключением.
+
+    Выбирает карту на ОДИН РАНГ ВЫШЕ ранга буст-карты:
+      E → D, D → C, C → B, B → B
+    """
+    boost_rank = boost_card.get("rank", "")
+    target_rank = get_trade_rank(boost_rank)
     target_wanters = boost_card.get("wanters_count", 0)
 
     if not target_rank:
         return None
+
+    if target_rank != boost_rank:
+        print(f"   🔼 Ранг буст-карты: {boost_rank} → отдаём карту ранга: {target_rank}")
+    else:
+        print(f"   🔼 Ранг буст-карты: {boost_rank} → отдаём карту ранга: {target_rank} (выше нет)")
 
     locked_cards = set()
     if trade_manager:
@@ -411,21 +450,6 @@ def parse_all_unparsed_cards(
 
     Вызывается перед уходом в сон (когда лимиты вкладов исчерпаны),
     чтобы следующий день начинался с готовым кэшем желающих.
-
-    «Непропарсенная» карта — присутствует в inventory.json,
-    но её card_id отсутствует в parsed_inventory.json.
-
-    Карты с wanters_count > MAX_WANTERS_FOR_TRADE тоже сохраняются в кэш
-    (чтобы не проверять их снова), но считаются «пропущенными».
-
-    Args:
-        session:       Авторизованная сессия requests
-        output_dir:    Директория с файлами инвентаря
-        save_interval: Сохранять parsed_inventory каждые N карт
-        on_progress:   Опциональный колбэк (current_idx, total_count)
-
-    Returns:
-        dict: {parsed, skipped, errors, total}
     """
     logger = get_logger()
     inventory_manager = InventoryManager(output_dir)
@@ -438,7 +462,6 @@ def parse_all_unparsed_cards(
         print("   ℹ️  Инвентарь пуст — нечего парсить")
         return {"parsed": 0, "skipped": 0, "errors": 0, "total": 0}
 
-    # Собираем карты, которых нет в кэше
     unparsed: List[Dict[str, Any]] = []
     parsed_card_ids = set(parsed_inventory.keys())
 
@@ -487,8 +510,6 @@ def parse_all_unparsed_cards(
                 error_count += 1
                 continue
 
-            # Сохраняем в кэш в любом случае — даже если превышен лимит желающих,
-            # чтобы при следующем запуске не парсить эту карту снова
             parsed_inventory[card_id_str] = {
                 "card_id":       card_data["card_id"],
                 "name":          name,
@@ -509,7 +530,6 @@ def parse_all_unparsed_cards(
             if on_progress:
                 on_progress(idx, total)
 
-            # Периодическое сохранение
             if idx % save_interval == 0:
                 inventory_manager.save_parsed_inventory(parsed_inventory)
                 logger.debug(f"Промежуточное сохранение: {idx}/{total}")
@@ -519,7 +539,6 @@ def parse_all_unparsed_cards(
         print("\n\n⚠️  Парсинг прерван пользователем")
         logger.warning("parse_all_unparsed_cards: прерван пользователем (Ctrl+C)")
 
-    # Финальное сохранение
     inventory_manager.save_parsed_inventory(parsed_inventory)
     logger.info(
         f"parse_all_unparsed_cards завершён: "
